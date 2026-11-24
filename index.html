@@ -1,320 +1,958 @@
-# ============================================
-# 守株待兔 — 小二引入簡報產生器
-# 在 Google Colab 執行後會自動下載 PPTX
-# ============================================
-!pip install -q python-pptx
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>守株待兔大冒險：農夫的選擇</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Heiti TC",sans-serif;
+  background:linear-gradient(180deg,#bfe6ff 0%,#e9f9d8 100%);
+  min-height:100vh;color:#4a3b2a;
+  -webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+#app{max-width:1000px;margin:0 auto;padding:10px}
+.hidden{display:none !important}
 
-from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-from pptx.oxml.ns import qn
-from lxml import etree
+/* ===== 頂部列 ===== */
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;border-radius:20px;
+  padding:8px 16px;box-shadow:0 4px 0 rgba(0,0,0,.08);margin-bottom:10px;font-size:20px;font-weight:bold}
+.topbar .stars{color:#f08c00}
+#levelName{color:#e8590c}
+.icon-btn{font-family:inherit;border:none;background:#fff3d6;border-radius:12px;font-size:20px;padding:6px 12px;cursor:pointer;font-weight:bold;color:#7a5200}
+.icon-btn:active{transform:scale(.95)}
 
-# ---------- 顏色 ----------
-CREAM  = RGBColor(0xFF, 0xF8, 0xE7)
-ORANGE = RGBColor(0xFF, 0x8C, 0x42)
-GREEN  = RGBColor(0x6B, 0xBF, 0x59)
-DGREEN = RGBColor(0x3E, 0x8E, 0x41)
-LGREEN = RGBColor(0xE6, 0xF7, 0xE1)
-BLUE   = RGBColor(0x4A, 0x90, 0xE2)
-SKY    = RGBColor(0xD6, 0xEF, 0xFF)
-PINK   = RGBColor(0xFF, 0x8F, 0xAB)
-LPINK  = RGBColor(0xFF, 0xD6, 0xE0)
-YELLOW = RGBColor(0xFF, 0xD1, 0x66)
-LYELL  = RGBColor(0xFF, 0xF1, 0xC1)
-BROWN  = RGBColor(0x8B, 0x5A, 0x2B)
-TAN    = RGBColor(0xDE, 0xB8, 0x87)
-PURPLE = RGBColor(0x9B, 0x7E, 0xDE)
-RED    = RGBColor(0xE8, 0x4A, 0x5F)
-DARK   = RGBColor(0x33, 0x33, 0x33)
-GRAY   = RGBColor(0xAA, 0xAA, 0xAA)
-WHITE  = RGBColor(0xFF, 0xFF, 0xFF)
-BLACK  = RGBColor(0x22, 0x22, 0x22)
+/* ===== 畫面 ===== */
+.screen{display:none;background:#fffaf0;border-radius:28px;padding:20px;box-shadow:0 6px 0 rgba(0,0,0,.1);position:relative;overflow:hidden}
+.screen.active{display:block;animation:fadeIn .5s}
+.title{font-size:30px;color:#e8590c;text-align:center;margin-bottom:12px;text-shadow:2px 2px 0 #ffe8cc}
 
-FONT = "Microsoft JhengHei"   # 微軟正黑體（繁體）
+/* ===== 按鈕 ===== */
+.btn{font-family:inherit;font-size:22px;font-weight:bold;border:none;border-radius:18px;padding:12px 26px;cursor:pointer;color:#fff;
+  background:#ff922b;box-shadow:0 5px 0 #d9480f;transition:transform .1s}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #d9480f}
+.btn.green{background:#51cf66;box-shadow:0 5px 0 #2b8a3e}
+.btn.blue{background:#4dabf7;box-shadow:0 5px 0 #1971c2}
+.btn.brown{background:#a1887f;box-shadow:0 5px 0 #6d4c41}
+.btn.pink{background:#f783ac;box-shadow:0 5px 0 #c2255c}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.pulse{animation:pulse 1.4s infinite}
+.btn-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:16px}
 
-prs = Presentation()
-prs.slide_width  = Inches(13.333)
-prs.slide_height = Inches(7.5)
-BLANK = prs.slide_layouts[6]
+/* ===== 貓頭鷹老師 ===== */
+.owl-box{display:flex;align-items:center;gap:10px;margin:14px 0}
+.owl{font-size:52px;animation:bob 2.2s ease-in-out infinite;flex-shrink:0}
+.owl-talk{background:#fff;border:3px solid #ffd43b;border-radius:18px;padding:10px 16px;font-size:20px;flex:1;line-height:1.6;position:relative}
+.owl-talk::before{content:"";position:absolute;left:-14px;top:50%;transform:translateY(-50%);border:8px solid transparent;border-right-color:#ffd43b;border-width:8px 12px 8px 0}
 
-# ---------- 工具函式 ----------
-def set_font(run, size=24, color=DARK, bold=False, name=FONT):
-    f = run.font
-    f.size = Pt(size); f.bold = bold; f.color.rgb = color; f.name = name
-    rPr = run._r.get_or_add_rPr()
-    for tag in ("a:ea", "a:cs"):
-        el = rPr.find(qn(tag))
-        if el is None:
-            el = etree.SubElement(rPr, qn(tag))
-        el.set("typeface", name)
+/* ===== 開始畫面 ===== */
+.start-hero{text-align:center;padding:10px}
+.start-hero h1{font-size:46px;color:#e8590c;text-shadow:3px 3px 0 #ffe066;margin:10px 0}
+.start-hero .sub{font-size:22px;color:#6b4f2a;margin-bottom:14px}
+.hero-anim{font-size:70px;height:100px;position:relative;margin:0 auto 10px;width:320px}
+.hero-anim .h-rabbit{position:absolute;left:0;bottom:0;animation:heroHop 3s ease-in-out infinite}
+.hero-anim .h-stump{position:absolute;right:20px;bottom:0}
+.level-map{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:18px 0}
+.level-chip{background:#fff;border:3px dashed #ffa94d;border-radius:18px;padding:10px 12px;font-size:18px;width:150px}
+.level-chip b{display:block;font-size:34px}
+.name-row{font-size:22px;margin:16px 0}
+.name-row input{font-family:inherit;font-size:22px;padding:8px 14px;border-radius:14px;border:3px solid #ffc078;width:200px;text-align:center;-webkit-user-select:text;user-select:text}
 
-def fill_text(shp, lines, size=24, color=DARK, bold=False,
-              align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE):
-    """lines 可以是字串、字串list，或 (文字, 大小, 顏色, 粗體) 的 tuple list"""
-    tf = shp.text_frame
-    tf.clear(); tf.word_wrap = True
-    tf.vertical_anchor = anchor
-    tf.margin_left = tf.margin_right = Inches(0.1)
-    tf.margin_top = tf.margin_bottom = Inches(0.05)
-    if isinstance(lines, str):
-        lines = lines.split("\n")
-    for i, line in enumerate(lines):
-        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-        p.alignment = align
-        if isinstance(line, tuple):
-            t = line[0]
-            s = line[1] if len(line) > 1 else size
-            c = line[2] if len(line) > 2 else color
-            b = line[3] if len(line) > 3 else bold
-        else:
-            t, s, c, b = line, size, color, bold
-        r = p.add_run(); r.text = t
-        set_font(r, s, c, b)
-    return shp
+/* ===== 故事場景 ===== */
+.scene{position:relative;height:330px;border-radius:22px;overflow:hidden;border:4px solid #fff;
+  background:linear-gradient(180deg,#8fd3ff 0%,#d3f0ff 52%,#9bd770 52%,#74c050 100%)}
+.sun{position:absolute;top:12px;right:28px;font-size:50px;animation:spin 12s linear infinite}
+.cloud{position:absolute;font-size:52px;opacity:.95}
+.cloud.c1{top:16px;left:8%;animation:drift 14s ease-in-out infinite}
+.cloud.c2{top:40px;left:45%;animation:drift 18s ease-in-out infinite reverse}
+.mount{position:absolute;bottom:48%;width:0;height:0;border-style:solid;border-color:transparent}
+.mount.m1{left:2%;border-width:0 120px 120px 120px;border-bottom-color:#86c5b0}
+.mount.m2{left:28%;border-width:0 150px 160px 150px;border-bottom-color:#6fb39c}
+.mount.m3{left:62%;border-width:0 110px 110px 110px;border-bottom-color:#8fcfb8}
+.big-tree{position:absolute;right:-20px;bottom:40px;font-size:170px;line-height:1}
+.crops-row{position:absolute;bottom:8px;left:2%;font-size:34px;letter-spacing:8px}
+.stump{position:absolute;width:70px;height:56px;border-radius:6px 6px 12px 12px;
+  background:linear-gradient(90deg,#6d4126,#9c6440 50%,#6d4126)}
+.stump::before{content:"";position:absolute;top:-11px;left:-2px;width:74px;height:22px;border-radius:50%;
+  background:radial-gradient(ellipse,#f0c98f 15%,#c99560 17%,#e8bb80 35%,#b98250 37%,#dcae72 60%);border:2px solid #6d4126}
+.stump::after{content:"樹樁";position:absolute;bottom:-26px;left:50%;transform:translateX(-50%);font-size:15px;color:#fff;
+  background:rgba(109,65,38,.85);border-radius:8px;padding:0 6px;white-space:nowrap}
+.actor{position:absolute;bottom:58px;font-size:80px;line-height:1;transition:left 1s ease}
+.actor.working{animation:work .6s ease-in-out infinite}
+#sRabbit,.rabbit{bottom:62px;font-size:54px;transition:none}
+.rabbit.run{animation:runR 1.6s linear forwards,hopB .32s ease-in-out infinite;transform:scaleX(-1)}
+.rabbit.knocked{transform:rotate(180deg)}
+#sBoom{left:62%;bottom:100px;font-size:64px;animation:boom .5s ease-out}
+#sStars{left:60%;bottom:112px;font-size:36px;animation:spin 1.5s linear infinite}
+.talk{position:absolute;top:14px;background:#fff;border-radius:18px;padding:8px 14px;font-size:20px;max-width:330px;
+  box-shadow:0 4px 0 rgba(0,0,0,.1);border:3px solid #ffa94d;display:none;animation:popIn .35s;z-index:5;line-height:1.5}
+.story-box{display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:14px 18px;margin-top:14px;border:3px solid #ffd8a8}
+.story-box p{font-size:26px;line-height:1.7;flex:1;letter-spacing:2px}
+.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:20px;font-weight:bold}
 
-def shape(slide, kind, x, y, w, h, fill=None, line=None, lw=2, rot=0):
-    s = slide.shapes.add_shape(kind, Inches(x), Inches(y), Inches(w), Inches(h))
-    if fill is not None:
-        s.fill.solid(); s.fill.fore_color.rgb = fill
-    else:
-        s.fill.background()
-    if line is not None:
-        s.line.color.rgb = line; s.line.width = Pt(lw)
-    else:
-        s.line.fill.background()
-    s.rotation = rot
-    s.shadow.inherit = False
-    return s
+/* ===== 農場 ===== */
+.farm-stats{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;background:#fff;border-radius:16px;padding:10px 14px;font-size:19px;font-weight:bold;margin-bottom:10px}
+.stat{display:flex;align-items:center;gap:6px}
+.bar{width:130px;height:20px;background:#e9ecef;border-radius:10px;overflow:hidden;border:2px solid #dee2e6}
+.bar > div{height:100%;border-radius:10px;transition:width .8s,background .8s}
+.field-scene{position:relative;height:380px;border-radius:22px;overflow:hidden;border:4px solid #fff;
+  background:linear-gradient(180deg,#bfe9ff 0%,#e3f6ff 22%,#93d26d 22%,#78c255 100%)}
+.field{position:absolute;left:3%;top:25%;width:63%;height:70%;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);gap:10px}
+.plot{position:relative;border-radius:16px;background:linear-gradient(#a8743f,#8a5a2b);box-shadow:inset 0 -6px 0 rgba(0,0,0,.18);
+  display:flex;align-items:center;justify-content:center;overflow:visible}
+.plot .crop{font-size:52px;transition:transform .6s;display:inline-block}
+.plot.ripe .crop{filter:drop-shadow(0 0 8px #ffd43b)}
+.plot.weedy::after{content:"🌿🌿";position:absolute;bottom:2px;left:4px;font-size:22px;opacity:.9}
+.plot.dead{background:linear-gradient(#9c8a74,#7c6a55)}
+.item{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:78px;height:78px;border-radius:50%;
+  background:rgba(255,255,255,.88);border:4px solid #ffd43b;display:flex;align-items:center;justify-content:center;
+  font-size:46px;cursor:pointer;animation:popInC .25s,wiggle .7s ease-in-out .25s infinite;z-index:3}
+.item.gone{animation:popOutC .25s forwards}
+.float{position:absolute;left:50%;top:30%;transform:translateX(-50%);font-size:22px;font-weight:bold;color:#2b8a3e;
+  text-shadow:2px 2px 0 #fff;white-space:nowrap;animation:floatUp 1s forwards;pointer-events:none;z-index:6}
+#farmFarmer{left:70%;bottom:40px;font-size:76px}
+#farmStump{left:86%;bottom:44px}
+#farmTalk{top:6%;right:2%;max-width:280px}
+#farRabbit{position:absolute;top:13%;font-size:36px;display:none;left:100%}
+#farRabbit.hop{display:block;animation:hopAcross 3.2s linear forwards,hopY .35s ease-in-out infinite}
+.badge{position:absolute;top:10px;left:10px;background:#fff;border:3px solid #ff6b6b;color:#c92a2a;border-radius:16px;padding:4px 14px;font-size:24px;font-weight:bold;z-index:5}
+#waitCloud{top:10px;left:10px;border-color:#868e96;color:#495057}
+.choice-panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+.big-btn{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:26px;padding:16px}
+.big-btn small{font-size:16px;font-weight:normal;opacity:.95}
+.result-card{background:#fff;border-radius:22px;border:4px solid #ffd43b;padding:18px;text-align:center;animation:popIn .4s;margin-top:10px}
+.result-card h3{font-size:30px;margin-bottom:8px}
+.result-card .stars-big{font-size:46px;letter-spacing:4px;margin:6px 0}
+.result-card .lesson{font-size:21px;line-height:1.7;background:#fff9db;border-radius:14px;padding:10px 14px;margin:10px 0;text-align:left}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+.compare > div{background:#f1f3f5;border-radius:14px;padding:10px;font-size:19px;line-height:1.7}
+.grey-star{filter:grayscale(1);opacity:.35}
 
-def box(slide, x, y, w, h, lines, fill=WHITE, line=None, size=24, color=DARK,
-        bold=False, kind=MSO_SHAPE.ROUNDED_RECTANGLE, align=PP_ALIGN.CENTER, lw=3):
-    s = shape(slide, kind, x, y, w, h, fill, line, lw)
-    return fill_text(s, lines, size, color, bold, align)
+/* ===== 排序 ===== */
+.slots,.pool{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.pool{margin-top:16px;min-height:170px;background:#f1f3f5;border-radius:18px;padding:12px}
+.slot{min-height:190px;border:4px dashed #ffa94d;border-radius:18px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;padding:6px;cursor:pointer;color:#adb5bd;font-size:16px;text-align:center}
+.slot-num{font-size:44px;font-weight:bold;color:#ffc078}
+.slot.right{border:4px solid #51cf66;background:#ebfbee}
+.slot.wrong{border:4px solid #ff6b6b;background:#fff5f5;animation:shake .5s}
+.slot-tag{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#7950f2;color:#fff;border-radius:10px;padding:2px 12px;font-size:16px;font-weight:bold;white-space:nowrap}
+.scard{background:#fff;border:3px solid #ffd8a8;border-radius:16px;padding:10px;text-align:center;cursor:pointer;color:#4a3b2a;
+  box-shadow:0 4px 0 #ffd8a8;animation:popIn .3s;width:100%}
+.scard:active{transform:scale(.96)}
+.sc-icon{font-size:42px;margin-bottom:4px}
+.sc-text{font-size:18px;line-height:1.5}
+.slot .scard{border:none;box-shadow:none}
 
-def text(slide, x, y, w, h, lines, size=24, color=DARK, bold=False,
-         align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE):
-    tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
-    return fill_text(tb, lines, size, color, bold, align, anchor)
+/* ===== 泡泡 ===== */
+.bubble-hud{display:flex;justify-content:space-around;font-size:24px;font-weight:bold;background:#fff;border-radius:16px;padding:8px;margin-bottom:10px}
+#bubbleArea{position:relative;height:430px;border-radius:22px;overflow:hidden;border:4px solid #fff;
+  background:linear-gradient(180deg,#d0ebff 0%,#e7f5ff 60%,#d3f9d8 100%)}
+.bubble{position:absolute;bottom:-160px;width:150px;height:150px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;border:4px solid rgba(255,255,255,.9);box-shadow:inset -10px -10px 20px rgba(255,255,255,.6),0 4px 10px rgba(0,0,0,.1);
+  animation:rise linear forwards;padding:10px;text-align:center}
+.bubble .b-ic{font-size:38px}
+.bubble .b-tx{font-size:18px;font-weight:bold;line-height:1.3;color:#3b2f20}
+.bubble.popped{animation:popBubble .35s forwards}
+.bubble.wrongpop{animation:badBubble .55s forwards;border-color:#ff6b6b}
+.overlay{position:absolute;inset:0;background:rgba(255,250,240,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:20px;z-index:10;font-size:22px;line-height:1.7}
+.overlay h3{font-size:32px;color:#e8590c;margin-bottom:8px}
+.demo-row{display:flex;gap:20px;margin:12px 0;flex-wrap:wrap;justify-content:center}
+.demo{background:#fff;border-radius:16px;padding:10px 16px;border:3px solid #51cf66}
+.demo.bad{border-color:#ff6b6b}
 
-def bg(slide, color):
-    slide.background.fill.solid()
-    slide.background.fill.fore_color.rgb = color
+/* ===== 問答 ===== */
+.quiz-card{background:#fff;border-radius:22px;padding:20px;border:4px solid #a5d8ff}
+.q-prog{font-size:18px;color:#1971c2;font-weight:bold}
+.q-text{font-size:28px;margin:12px 0 16px;line-height:1.6;display:flex;gap:10px;align-items:flex-start}
+.q-text span{flex:1}
+.opt{display:block;width:100%;font-family:inherit;text-align:left;font-size:22px;padding:14px 18px;margin:10px 0;border-radius:16px;border:3px solid #dee2e6;
+  background:#f8f9fa;cursor:pointer;color:#343a40;line-height:1.5;transition:transform .1s}
+.opt:hover{border-color:#74c0fc;background:#e7f5ff}
+.opt.right{border-color:#51cf66;background:#ebfbee}
+.opt.wrong{border-color:#ff6b6b;background:#fff5f5;animation:shake .5s}
+.feedback{font-size:21px;line-height:1.6;background:#fff9db;border-radius:14px;padding:12px 16px;margin-top:10px;animation:popIn .3s}
 
-def header(slide, title, color=ORANGE):
-    box(slide, 0.5, 0.3, 12.3, 1.1, [(title, 36, WHITE, True)], fill=color)
+/* ===== 獎狀 ===== */
+.cert{background:linear-gradient(135deg,#fff9db,#fff);border:10px double #f59f00;border-radius:24px;padding:26px;text-align:center;position:relative}
+.cert h2{font-size:40px;color:#d9480f;margin-bottom:6px}
+.cert .award{font-size:30px;font-weight:bold;color:#7950f2;margin:8px 0}
+.cert .who{font-size:30px;margin:10px 0}
+.cert .who b{color:#e8590c;border-bottom:3px solid #ffa94d;padding:0 10px}
+.cert .moral{font-size:24px;line-height:1.7;background:#fff;border-radius:16px;padding:12px;margin:14px 0;border:3px solid #ffe066}
+.reflect{font-size:20px;line-height:1.7;background:#e7f5ff;border-radius:16px;padding:12px;margin-top:10px}
+#confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:99}
+.conf{position:absolute;top:-50px;font-size:30px;animation:fall linear forwards}
 
-def dots(slide, colors=(YELLOW, PINK, GREEN, BLUE)):
-    pos = [(0.2, 6.9), (12.8, 6.8), (12.9, 1.6), (0.15, 1.7), (6.6, 7.1)]
-    for i, (x, y) in enumerate(pos):
-        shape(slide, MSO_SHAPE.OVAL, x, y, 0.35, 0.35, colors[i % len(colors)])
+/* ===== 動畫 ===== */
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes drift{0%,100%{transform:translateX(0)}50%{transform:translateX(60px)}}
+@keyframes work{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) translateY(-8px)}}
+@keyframes runR{from{left:-12%}to{left:60%}}
+@keyframes hopB{0%,100%{bottom:62px}50%{bottom:94px}}
+@keyframes boom{0%{transform:scale(0)}60%{transform:scale(1.6)}100%{transform:scale(1)}}
+@keyframes popIn{0%{transform:scale(.5);opacity:0}80%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+@keyframes popInC{from{transform:translate(-50%,-50%) scale(0)}to{transform:translate(-50%,-50%) scale(1)}}
+@keyframes popOutC{to{transform:translate(-50%,-50%) scale(1.6);opacity:0}}
+@keyframes wiggle{0%,100%{transform:translate(-50%,-50%) rotate(-8deg)}50%{transform:translate(-50%,-50%) rotate(8deg)}}
+@keyframes floatUp{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,-60px)}}
+@keyframes hopAcross{from{left:100%}to{left:-10%}}
+@keyframes hopY{0%,100%{margin-top:0}50%{margin-top:-18px}}
+@keyframes heroHop{0%{left:0}45%{left:150px}50%{left:150px;transform:rotate(0)}60%{transform:rotate(-15deg)}100%{left:0}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-8px)}80%{transform:translateX(8px)}}
+@keyframes rise{from{bottom:-160px}to{bottom:105%}}
+@keyframes popBubble{to{transform:scale(1.5);opacity:0}}
+@keyframes badBubble{0%{transform:translateX(0)}20%{transform:translateX(-12px)}40%{transform:translateX(12px)}60%{transform:translateX(-8px)}100%{transform:scale(.3);opacity:0}}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
 
-def notes(slide, t):
-    slide.notes_slide.notes_text_frame.text = t
+@media (max-width:720px){
+  .title{font-size:24px}
+  .story-box p{font-size:21px}
+  .choice-panel{grid-template-columns:1fr}
+  .slots,.pool{grid-template-columns:repeat(2,1fr)}
+  .field{width:62%}
+  .plot .crop{font-size:38px}
+  .item{width:60px;height:60px;font-size:34px}
+  #farmFarmer{font-size:56px}
+  .bubble{width:120px;height:120px}
+  .bubble .b-tx{font-size:15px}
+  .compare{grid-template-columns:1fr}
+  .start-hero h1{font-size:34px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 頂部列 -->
+  <div class="topbar">
+    <div>🐰 守株待兔大冒險</div>
+    <div id="levelName">開始</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="stars">⭐ × <span id="starCount">0</span></span>
+      <button class="icon-btn" id="btnMute">🔊</button>
+    </div>
+  </div>
 
-# ---------- 可愛圖案 ----------
-def rabbit(slide, x, y, s=1.0):
-    shape(slide, MSO_SHAPE.OVAL, x+0.35*s, y, 0.32*s, 0.95*s, WHITE, GRAY, 1.5, -12)
-    shape(slide, MSO_SHAPE.OVAL, x+0.44*s, y+0.15*s, 0.14*s, 0.6*s, LPINK, None, 0, -12)
-    shape(slide, MSO_SHAPE.OVAL, x+0.85*s, y, 0.32*s, 0.95*s, WHITE, GRAY, 1.5, 12)
-    shape(slide, MSO_SHAPE.OVAL, x+0.94*s, y+0.15*s, 0.14*s, 0.6*s, LPINK, None, 0, 12)
-    shape(slide, MSO_SHAPE.OVAL, x+0.15*s, y+1.45*s, 1.25*s, 1.05*s, WHITE, GRAY, 1.5)
-    shape(slide, MSO_SHAPE.OVAL, x+0.2*s, y+0.7*s, 1.1*s, 0.92*s, WHITE, GRAY, 1.5)
-    shape(slide, MSO_SHAPE.OVAL, x+0.48*s, y+0.98*s, 0.12*s, 0.16*s, BLACK)
-    shape(slide, MSO_SHAPE.OVAL, x+0.9*s, y+0.98*s, 0.12*s, 0.16*s, BLACK)
-    shape(slide, MSO_SHAPE.OVAL, x+0.69*s, y+1.18*s, 0.13*s, 0.09*s, PINK)
-    shape(slide, MSO_SHAPE.OVAL, x+0.32*s, y+1.2*s, 0.18*s, 0.11*s, LPINK)
-    shape(slide, MSO_SHAPE.OVAL, x+1.0*s, y+1.2*s, 0.18*s, 0.11*s, LPINK)
+  <!-- ===== 開始畫面 ===== -->
+  <section id="screen-start" class="screen active">
+    <div class="start-hero">
+      <div class="hero-anim"><span class="h-rabbit">🐇</span><span class="h-stump">🪵</span></div>
+      <h1>守株待兔大冒險</h1>
+      <div class="sub">小朋友，今天由你來當農夫！看看你會怎樣做吧！</div>
+      <div class="level-map">
+        <div class="level-chip"><b>📖</b>第一關<br>故事開始了</div>
+        <div class="level-chip"><b>🧑‍🌾</b>第二關<br>農夫的選擇</div>
+        <div class="level-chip"><b>🧩</b>第三關<br>故事排排序</div>
+        <div class="level-chip"><b>💪</b>第四關<br>勤勞泡泡</div>
+        <div class="level-chip"><b>❓</b>第五關<br>道理小問答</div>
+      </div>
+      <div class="name-row">你的名字：<input id="nameInput" maxlength="8" placeholder="請輸入名字"></div>
+      <button class="btn green pulse" id="btnStart" style="font-size:28px;padding:14px 40px">開始冒險 ▶</button>
+    </div>
+  </section>
 
-def stump(slide, x, y, s=1.0):
-    shape(slide, MSO_SHAPE.TRAPEZOID, x-0.15*s, y+0.95*s, 1.9*s, 0.35*s, BROWN)
-    shape(slide, MSO_SHAPE.RECTANGLE, x, y+0.28*s, 1.6*s, 0.95*s, BROWN)
-    shape(slide, MSO_SHAPE.OVAL, x, y, 1.6*s, 0.56*s, TAN, BROWN, 2)
-    shape(slide, MSO_SHAPE.OVAL, x+0.3*s, y+0.1*s, 1.0*s, 0.35*s, None, BROWN, 1.2)
-    shape(slide, MSO_SHAPE.OVAL, x+0.58*s, y+0.19*s, 0.44*s, 0.17*s, None, BROWN, 1.2)
+  <!-- ===== 第一關：故事 ===== -->
+  <section id="screen-story" class="screen">
+    <h2 class="title">第一關：📖 故事開始了</h2>
+    <div class="scene">
+      <div class="sun">☀️</div>
+      <div class="cloud c1">☁️</div><div class="cloud c2">☁️</div>
+      <div class="mount m1"></div><div class="mount m2"></div><div class="mount m3"></div>
+      <div class="big-tree">🌳</div>
+      <div class="crops-row">🌱 🌱 🌱 🌱 🌱 🌱 🌱</div>
+      <div class="stump" style="left:66%;bottom:56px"></div>
+      <div class="actor" id="sFarmer">🧑‍🌾</div>
+      <div class="actor rabbit" id="sRabbit">🐇</div>
+      <div class="actor" id="sBoom">💥</div>
+      <div class="actor" id="sStars">💫</div>
+      <div class="talk" id="sTalk"></div>
+    </div>
+    <div class="story-box">
+      <p id="storyText"></p>
+      <button class="icon-btn" id="btnReadStory">🔊 朗讀</button>
+    </div>
+    <div class="nav-row">
+      <button class="btn brown" id="btnPrev">◀ 上一頁</button>
+      <span id="storyProg"></span>
+      <button class="btn green" id="btnNext">下一頁 ▶</button>
+    </div>
+  </section>
 
-def grass(slide, y, n=14, color=DGREEN):
-    for i in range(n):
-        x = 0.3 + i * (12.7 / n)
-        shape(slide, MSO_SHAPE.ISOSCELES_TRIANGLE, x, y, 0.25, 0.45, color)
-        shape(slide, MSO_SHAPE.ISOSCELES_TRIANGLE, x+0.18, y+0.1, 0.2, 0.35, color)
+  <!-- ===== 第二關：農夫的選擇 ===== -->
+  <section id="screen-farm" class="screen">
+    <h2 class="title">第二關：🧑‍🌾 農夫的選擇</h2>
+    <div class="farm-stats">
+      <div class="stat">📅 第 <span id="dayNum">2</span> 天 / 7 天</div>
+      <div class="stat">🌱 生長 <div class="bar"><div id="growBar"></div></div></div>
+      <div class="stat">💚 健康 <div class="bar"><div id="healthBar"></div></div></div>
+      <div class="stat">🐰 兔子：<span id="rabbitNum">1</span> 隻</div>
+    </div>
+    <div class="field-scene">
+      <div class="cloud c1" style="font-size:40px;top:6px">☁️</div>
+      <div class="sun" style="font-size:40px;top:4px;right:auto;left:45%">☀️</div>
+      <div id="farRabbit">🐇</div>
+      <div class="field" id="field"></div>
+      <div class="stump" id="farmStump"></div>
+      <div class="actor" id="farmFarmer">🧑‍🌾</div>
+      <div class="talk" id="farmTalk"></div>
+      <div class="badge hidden" id="timerBadge">⏱️ 12</div>
+      <div class="badge hidden" id="waitCloud">⏳ 等呀等……</div>
+    </div>
+    <div class="owl-box"><span class="owl">🦉</span><div class="owl-talk" id="farmOwl"></div></div>
+    <div class="choice-panel" id="choicePanel">
+      <button class="btn green big-btn" id="btnWork">⛏️ 下田耕作<small>要花力氣，但農作物會長大</small></button>
+      <button class="btn brown big-btn" id="btnWait">🪵 坐在樹樁旁等兔子<small>不用費力氣……說不定有兔子？</small></button>
+    </div>
+    <div id="farmResult" class="hidden"></div>
+  </section>
 
-# =========================================================
-# 第 1 頁：封面
-# =========================================================
-s = prs.slides.add_slide(BLANK); bg(s, SKY)
-shape(s, MSO_SHAPE.OVAL, 11.2, 0.4, 1.6, 1.6, YELLOW)
-shape(s, MSO_SHAPE.CLOUD, 0.6, 0.5, 2.2, 1.1, WHITE)
-shape(s, MSO_SHAPE.CLOUD, 8.6, 1.0, 1.8, 0.9, WHITE)
-shape(s, MSO_SHAPE.RECTANGLE, 0, 5.7, 13.333, 1.8, GREEN)
-grass(s, 5.35)
-box(s, 1.2, 0.8, 1.6, 1.6, [("第14課", 24, WHITE, True)], fill=PINK, kind=MSO_SHAPE.OVAL)
-box(s, 2.9, 1.0, 7.6, 1.7, [("守株待兔", 80, WHITE, True)], fill=ORANGE, line=WHITE, lw=6)
-box(s, 3.4, 2.95, 6.6, 0.85, [("🔍 課前熱身操：小偵探出動！", 30, BROWN, True)], fill=LYELL)
-stump(s, 3.6, 4.7, 1.2)
-rabbit(s, 8.3, 3.4, 1.3)
-box(s, 9.9, 3.2, 2.6, 1.0, [("一起來猜猜我的故事！", 18, DARK, True)],
-    fill=WHITE, line=PINK, kind=MSO_SHAPE.OVAL_CALLOUT)
-notes(s, "老師：今天我們會認識一個很有趣的成語故事！大家先當小偵探，"
-         "看看能不能猜出這個成語的意思。")
+  <!-- ===== 第三關：排序 ===== -->
+  <section id="screen-order" class="screen">
+    <h2 class="title">第三關：🧩 故事排排序</h2>
+    <div class="owl-box"><span class="owl">🦉</span><div class="owl-talk" id="orderOwl"></div></div>
+    <div class="slots" id="slots"></div>
+    <div class="pool" id="pool"></div>
+    <div class="btn-row"><button class="btn blue" id="btnCheck">✔️ 檢查答案</button></div>
+    <div id="orderResult" class="hidden"></div>
+  </section>
 
-# =========================================================
-# 第 2 頁：生活小調查
-# =========================================================
-s = prs.slides.add_slide(BLANK); bg(s, CREAM); dots(s)
-header(s, "🙋 熱身小調查：這樣你會開心嗎？", BLUE)
-cards = [("🍦", "不用排隊\n就有雪糕吃", PINK),
-         ("💯", "不用溫習\n測驗就拿一百分", GREEN),
-         ("🎁", "走在路上\n忽然撿到一份禮物", PURPLE)]
-for i, (emo, t, c) in enumerate(cards):
-    x = 0.7 + i * 4.1
-    shape(s, MSO_SHAPE.ROUNDED_RECTANGLE, x, 1.8, 3.8, 3.7, WHITE, c, 5)
-    text(s, x, 1.95, 3.8, 1.6, [(emo, 80)])
-    text(s, x, 3.6, 3.8, 1.7, [(l, 28, c, True) for l in t.split("\n")])
-box(s, 2.2, 5.9, 8.9, 1.1, [("覺得開心的同學，舉起手來！🙌", 32, BROWN, True)],
-    fill=YELLOW, kind=MSO_SHAPE.ROUNDED_RECTANGULAR_CALLOUT)
-notes(s, "逐項讀出，請學生舉手。追問：「這些事情會不會每天都發生？」"
-         "引導學生發現：好運氣不會每天都有。（先不要說出答案，為課文鋪路）")
+  <!-- ===== 第四關：泡泡 ===== -->
+  <section id="screen-bubble" class="screen">
+    <h2 class="title">第四關：💪 勤勞泡泡</h2>
+    <div class="bubble-hud">
+      <span>💪 勤勞分：<span id="bScore">0</span></span>
+      <span>⏱️ 時間：<span id="bTime">40</span> 秒</span>
+    </div>
+    <div id="bubbleArea"></div>
+    <div class="owl-box"><span class="owl">🦉</span><div class="owl-talk" id="bubbleOwl">點擊勤勞的好習慣泡泡！</div></div>
+    <div id="bubbleIntro" class="overlay">
+      <h3>💪 勤勞泡泡</h3>
+      <div>泡泡會從下面飄上來，請你<b>讀一讀泡泡上的字</b>：</div>
+      <div class="demo-row">
+        <div class="demo">✅ 勤勞努力的好習慣<br>📚 每天温習 → <b>快點擊！</b></div>
+        <div class="demo bad">🚫 不勞而獲的壞想法<br>🎲 只想靠運氣 → <b>不要點！</b></div>
+      </div>
+      <div>點對了加 1 分，點錯了扣 1 分，你有 40 秒！</div>
+      <button class="btn green pulse" id="btnBubbleStart" style="margin-top:14px">開始！</button>
+    </div>
+    <div id="bubbleResult" class="hidden"></div>
+  </section>
 
-# =========================================================
-# 第 3 頁：小明的扭蛋機
-# =========================================================
-s = prs.slides.add_slide(BLANK); bg(s, LGREEN); dots(s)
-header(s, "🎰 生活小劇場：小明的扭蛋機", GREEN)
-box(s, 0.6, 1.7, 8.2, 2.9,
-    [("小明第一次玩扭蛋機，", 26, DARK),
-     ("就扭到最想要的「隱藏版」！😲", 26, RED, True),
-     ("他想：「這部扭蛋機一定很幸運！", 26, DARK),
-     ("以後我每天來，一定又可以扭到！」", 26, DARK)],
-    fill=WHITE, line=GREEN, align=PP_ALIGN.LEFT)
-# 扭蛋機
-gx, gy = 9.7, 1.6
-shape(s, MSO_SHAPE.OVAL, gx, gy, 2.6, 2.2, SKY, BLUE, 3)
-for (dx, dy, c) in [(0.4,1.1,PINK),(0.95,1.35,YELLOW),(1.5,1.1,GREEN),(0.7,0.65,PURPLE),(1.3,0.55,ORANGE),(1.85,1.45,RED)]:
-    shape(s, MSO_SHAPE.OVAL, gx+dx, gy+dy, 0.5, 0.5, c, WHITE, 1)
-shape(s, MSO_SHAPE.ROUNDED_RECTANGLE, gx+0.15, gy+1.9, 2.3, 1.9, RED)
-shape(s, MSO_SHAPE.OVAL, gx+0.95, gy+2.25, 0.7, 0.7, WHITE, DARK, 2)
-shape(s, MSO_SHAPE.ROUNDED_RECTANGLE, gx+0.9, gy+3.15, 0.8, 0.45, DARK)
-text(s, 0.6, 4.75, 12.2, 0.7, [("❓ 明天開始，小明會怎樣做？你覺得他做得對嗎？", 28, DGREEN, True)])
-box(s, 0.8, 5.6, 5.7, 1.5, [("A", 30, WHITE, True), ("每天都把零用錢放進去，等再扭到隱藏版", 20, WHITE, True)], fill=ORANGE)
-box(s, 6.9, 5.6, 5.7, 1.5, [("B", 30, WHITE, True), ("開心地收好玩具，繼續儲錢、做自己的事", 20, WHITE, True)], fill=BLUE)
-notes(s, "請學生投票A或B，再請一兩位說原因。"
-         "老師：「今天的故事裏，也有一個人遇到了一次好運氣，他會選A還是B呢？」")
+  <!-- ===== 第五關：問答 ===== -->
+  <section id="screen-quiz" class="screen">
+    <h2 class="title">第五關：❓ 道理小問答</h2>
+    <div class="quiz-card" id="quizCard">
+      <div class="q-prog" id="qProg"></div>
+      <div class="q-text"><span id="qText"></span><button class="icon-btn" id="btnReadQ">🔊</button></div>
+      <div id="qOpts"></div>
+      <div class="feedback hidden" id="qFeedback"></div>
+      <div class="btn-row"><button class="btn blue hidden" id="btnQNext">下一題 ▶</button></div>
+    </div>
+    <div id="quizResult" class="hidden"></div>
+  </section>
 
-# =========================================================
-# 第 4 頁：認識「株」
-# =========================================================
-s = prs.slides.add_slide(BLANK); bg(s, CREAM); dots(s)
-header(s, "🌳 認識新朋友：「株」", DGREEN)
-box(s, 0.8, 1.8, 3.6, 3.6, [("株", 170, DGREEN, True)], fill=WHITE, line=DGREEN, lw=8)
-box(s, 1.3, 5.55, 2.6, 0.7, [("「木」字旁 🌲", 22, WHITE, True)], fill=GREEN)
-stump(s, 6.0, 2.6, 1.6)
-box(s, 9.3, 1.9, 2.8, 0.9, [("這就是「株」！", 24, WHITE, True)], fill=ORANGE,
-    kind=MSO_SHAPE.ROUNDED_RECTANGULAR_CALLOUT)
-box(s, 5.0, 4.9, 7.6, 1.1, [("株 ＝ 樹椿：樹木砍掉後，留在地上的那一截", 24, BROWN, True)], fill=LYELL)
-text(s, 4.8, 6.1, 8.0, 0.9, [("🏞️ 去郊野公園時，你有沒有坐在樹椿上休息過？", 22, DARK)])
-notes(s, "「株」是木字旁，跟樹木有關。課文中的「株」指樹椿。"
-         "問學生：在哪裏見過樹椿？（公園、郊野公園、行山時）可以讓學生用手比一比樹椿有多高。")
+  <!-- ===== 獎狀 ===== -->
+  <section id="screen-end" class="screen">
+    <div class="cert">
+      <div style="font-size:50px">🏆</div>
+      <h2>勤勞小農夫獎狀</h2>
+      <div class="who">頒發給 <b id="certName">小朋友</b></div>
+      <div class="award" id="certAward"></div>
+      <div style="font-size:34px" id="certStars"></div>
+      <div class="moral">🌾 我明白了：<br><b>希望不勞而獲，是不會有好結果的！</b><br>只有勤勞努力，才會有真正的收穫！</div>
+      <div class="reflect">💬 想一想、說說看：<br>在日常生活中，你見過「守株待兔」的人嗎？<br>你會怎樣做一個勤勞的小朋友？和同學說說看吧！</div>
+      <div class="btn-row"><button class="btn pink" id="btnReplay">🔄 再玩一次</button></div>
+    </div>
+  </section>
+</div>
+<div id="confetti"></div>
 
-# =========================================================
-# 第 5 頁：找一找
-# =========================================================
-s = prs.slides.add_slide(BLANK); bg(s, SKY)
-header(s, "👀 找一找：「株」在哪裏？", PURPLE)
-for (x, w, h) in [(-0.5, 4.5, 2.6), (2.8, 4.0, 3.0), (8.5, 5.0, 2.8)]:
-    shape(s, MSO_SHAPE.ISOSCELES_TRIANGLE, x, 5.0 - h + 0.3, w, h, RGBColor(0x9F, 0xC9, 0xC4))
-shape(s, MSO_SHAPE.RECTANGLE, 0, 4.6, 13.333, 2.9, GREEN)
-grass(s, 4.35, 16)
-stump(s, 2.2, 4.5, 1.1)
-stump(s, 7.6, 5.4, 0.9)
-rabbit(s, 4.3, 3.6, 0.8)
-text(s, 10.0, 3.4, 2.5, 2.5, [("👨‍🌾", 120)])
-box(s, 3.4, 1.65, 6.6, 1.2, [("課文圖畫中有幾棵樹椿？", 26, PURPLE, True), ("請上來指一指 👆", 24, DARK)],
-    fill=WHITE, line=PURPLE, kind=MSO_SHAPE.CLOUD_CALLOUT)
-notes(s, "配合課本第24頁的圖畫，請學生上前指出樹椿（課本圖中有兩棵）。"
-         "再問：兔子為什麼躺在樹椿旁邊？農夫在想甚麼？（先讓學生自由猜）")
+<script>
+/* ================= 工具 ================= */
+const $ = s => document.querySelector(s);
+const rand = n => Math.floor(Math.random() * n);
+function shuffle(a){ const b=a.slice(); for(let i=b.length-1;i>0;i--){const j=rand(i+1);[b[i],b[j]]=[b[j],b[i]];} return b; }
+function starHTML(n){ let s=''; for(let i=0;i<3;i++) s += i<n ? '⭐' : '<span class="grey-star">⭐</span>'; return s; }
 
-# =========================================================
-# 第 6 頁：拆字小偵探
-# =========================================================
-s = prs.slides.add_slide(BLANK); bg(s, LYELL); dots(s)
-header(s, "🔍 拆字小偵探：一個字一個字猜", ORANGE)
-chars = [("守", "⚽🧤", "守門員\n守着龍門", "守着", BLUE),
-         ("株", "🪵", "公園裏的\n樹椿", "樹椿", DGREEN),
-         ("待", "🚌", "在車站\n等待巴士", "等待", PURPLE),
-         ("兔", "🐰", "可愛的\n小白兔", "兔子", PINK)]
-for i, (ch, emo, eg, mean, c) in enumerate(chars):
-    x = 0.6 + i * 3.1
-    shape(s, MSO_SHAPE.ROUNDED_RECTANGLE, x, 1.7, 2.9, 5.4, WHITE, c, 5)
-    box(s, x+0.55, 1.9, 1.8, 1.8, [(ch, 90, WHITE, True)], fill=c, kind=MSO_SHAPE.OVAL)
-    text(s, x, 3.75, 2.9, 1.0, [(emo, 50)])
-    text(s, x, 4.75, 2.9, 1.2, [(l, 22, DARK) for l in eg.split("\n")])
-    box(s, x+0.4, 6.1, 2.1, 0.75, [(mean, 24, WHITE, True)], fill=c)
-notes(s, "逐個字配合生活例子：守門員「守」着龍門、「待」是等待（等巴士、等小息鐘聲）。"
-         "可先遮住底部的意思，請學生猜，再揭曉。")
+/* ================= 音效與朗讀 ================= */
+let actx = null, muted = false;
+function tone(freq, dur, type='sine', vol=0.15, delay=0){
+  if(muted) return;
+  try{
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.value = freq;
+    const t = actx.currentTime + delay;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  }catch(e){}
+}
+const SFX = {
+  click(){ tone(600,.08,'triangle'); },
+  good(){ tone(660,.1,'sine'); tone(990,.15,'sine',.15,.08); },
+  bad(){ tone(220,.25,'sawtooth',.08); tone(160,.3,'sawtooth',.08,.12); },
+  boom(){ tone(110,.35,'square',.12); },
+  win(){ [523,659,784,1047].forEach((f,i)=>tone(f,.22,'triangle',.15,i*.13)); }
+};
+function speak(text){
+  if(muted || !('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const clean = text.replace(/\p{Extended_Pictographic}/gu,'');
+  const u = new SpeechSynthesisUtterance(clean);
+  const vs = speechSynthesis.getVoices();
+  const v = vs.find(v=>/zh[-_]HK/i.test(v.lang)) || vs.find(v=>/zh[-_]TW/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang));
+  if(v){ u.voice = v; u.lang = v.lang; } else u.lang = 'zh-HK';
+  u.rate = 0.85;
+  speechSynthesis.speak(u);
+}
+if('speechSynthesis' in window){ speechSynthesis.getVoices(); }
+$('#btnMute').onclick = () => {
+  muted = !muted;
+  $('#btnMute').textContent = muted ? '🔇' : '🔊';
+  if(muted && 'speechSynthesis' in window) speechSynthesis.cancel();
+};
 
-# =========================================================
-# 第 7 頁：合起來猜
-# =========================================================
-s = prs.slides.add_slide(BLANK); bg(s, CREAM); dots(s)
-header(s, "🧩 合起來，猜猜「守株待兔」的意思", BLUE)
-parts = [("守着", BLUE), ("樹椿", DGREEN), ("等待", PURPLE), ("兔子", PINK)]
-for i, (t, c) in enumerate(parts):
-    x = 0.9 + i * 3.0
-    box(s, x, 1.85, 2.2, 1.1, [(t, 34, WHITE, True)], fill=c)
-    if i < 3:
-        text(s, x+2.2, 1.85, 0.8, 1.1, [("＋", 40, DARK, True)])
-box(s, 2.3, 3.3, 8.7, 1.1, [("＝ 守着樹椿，等待兔子跑過來 🐇", 32, BROWN, True)], fill=YELLOW)
-rabbit(s, 1.0, 4.4, 1.0)
-box(s, 3.0, 4.8, 9.3, 2.1,
-    [("咦？兔子會自己跑過來嗎？🤔", 30, RED, True),
-     ("為甚麼有人要守着樹椿等兔子呢？", 28, DARK, True)],
-    fill=WHITE, line=RED, kind=MSO_SHAPE.ROUNDED_RECTANGULAR_CALLOUT)
-notes(s, "讓學生把四個意思連起來讀一次。然後提出疑問：兔子通常會自己送上門嗎？"
-         "請學生大膽猜原因（例如：以前試過有兔子撞到樹椿？）。")
+/* ================= 全局狀態 ================= */
+const state = { name:'小朋友', levelStars:{farm:0, order:0, bubble:0, quiz:0} };
+function addStars(level, n){ state.levelStars[level] = Math.max(state.levelStars[level], n); updateStars(); }
+function totalStars(){ return Object.values(state.levelStars).reduce((a,b)=>a+b,0); }
+function updateStars(){ $('#starCount').textContent = totalStars(); }
+function show(id, name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $('#'+id).classList.add('active');
+  $('#levelName').textContent = name;
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
 
-# =========================================================
-# 第 8 頁：猜故事結局
-# =========================================================
-s = prs.slides.add_slide(BLANK); bg(s, LGREEN); dots(s)
-header(s, "🔮 大膽猜一猜：故事的結局會怎樣？", PURPLE)
-ends = [("🤑", "農夫每天都撿到\n兔子，變成大富翁", ORANGE),
-        ("😭", "農夫等不到兔子，\n田裏的農作物也枯死了", BLUE),
-        ("🤝", "兔子和農夫\n做了好朋友", PINK)]
-for i, (emo, t, c) in enumerate(ends):
-    x = 0.7 + i * 4.1
-    shape(s, MSO_SHAPE.ROUNDED_RECTANGLE, x, 1.8, 3.8, 3.9, WHITE, c, 5)
-    text(s, x, 1.95, 3.8, 1.6, [(emo, 80)])
-    text(s, x, 3.6, 3.8, 1.9, [(l, 24, c, True) for l in t.split("\n")])
-box(s, 2.0, 6.0, 9.3, 1.0, [("✋ 選一個，和同桌說說你的理由！", 30, WHITE, True)], fill=DGREEN)
-notes(s, "學生用手指示1、2、3投票，再與同桌分享理由（約1分鐘）。"
-         "老師不公佈答案：「到底誰猜對了？我們讀課文就知道！」")
+/* ================= 開始 ================= */
+$('#btnStart').onclick = () => {
+  SFX.click();
+  state.name = $('#nameInput').value.trim() || '小朋友';
+  startStory();
+};
 
-# =========================================================
-# 第 9 頁：默讀任務
-# =========================================================
-s = prs.slides.add_slide(BLANK); bg(s, SKY); dots(s)
-header(s, "📖 小偵探任務：默讀課文，看看自己猜得對不對", ORANGE)
-shape(s, MSO_SHAPE.ROUNDED_RECTANGLE, 0.8, 1.7, 8.4, 4.4, WHITE, ORANGE, 5)
-tasks = ["🔍 1. 農夫為甚麼會撿到兔子？",
-         "🔍 2. 農夫第二天做了甚麼？",
-         "🔍 3. 最後的結果怎樣？你猜對了嗎？"]
-for i, t in enumerate(tasks):
-    text(s, 1.2, 2.0 + i * 1.3, 7.8, 1.1, [(t, 30, DARK, True)], align=PP_ALIGN.LEFT)
-rabbit(s, 10.0, 1.9, 1.3)
-box(s, 2.0, 6.3, 9.3, 0.95, [("準備好了嗎？3、2、1，出發！🚀", 32, WHITE, True)], fill=RED)
-notes(s, "請學生默讀課文（課本第23至24頁），找出三個問題的答案。"
-         "完成後回到第8頁，看看誰猜對了，再引入「不勞而獲」的道理。")
+/* ================= 第一關：故事 ================= */
+const STORY = [
+  '從前，有個農夫在田裏辛勤地耕作。',
+  '忽然，農夫看見一隻兔子飛快地跑過來，一頭撞向田邊的一棵樹樁，撞死了。',
+  '農夫放下鋤頭，上前撿起兔子，高高興興地回家去。他開心地想：「多好的事啊！完全不費力氣，就能撿到死兔子！」',
+  '農夫心想：「明天我不用耕作了，就坐在樹樁旁等兔子吧！」小朋友，如果你是農夫，你會怎樣做呢？下一關，就由你來當農夫吧！'
+];
+let slide = 0, storyToken = 0;
+function startStory(){ show('screen-story','第一關'); setSlide(0); }
+function storyTalk(text, left){ const T=$('#sTalk'); T.textContent=text; T.style.left=left; T.style.display='block'; }
+function setSlide(i){
+  slide = i; const tk = ++storyToken;
+  const F=$('#sFarmer'), R=$('#sRabbit'), B=$('#sBoom'), S=$('#sStars');
+  R.className='actor rabbit'; R.style.display='none'; R.style.left='';
+  B.style.display='none'; S.style.display='none'; $('#sTalk').style.display='none';
+  F.className='actor';
+  $('#storyText').textContent = STORY[i];
+  $('#storyProg').textContent = `${i+1} / ${STORY.length}`;
+  $('#btnPrev').disabled = (i===0);
+  $('#btnNext').textContent = (i===STORY.length-1) ? '我來當農夫 ▶' : '下一頁 ▶';
+  $('#btnNext').classList.toggle('pulse', i===STORY.length-1);
 
-# ---------- 儲存並下載 ----------
-fname = "守株待兔_引入簡報.pptx"
-prs.save(fname)
-print("✅ 已完成：", fname)
+  if(i===0){
+    F.style.left='18%'; F.classList.add('working');
+    storyTalk('嘿呦！嘿呦！努力耕田！💪','8%');
+  }else if(i===1){
+    F.style.left='18%'; F.classList.add('working');
+    R.style.display='block'; R.classList.add('run');
+    setTimeout(()=>{
+      if(tk!==storyToken) return;
+      R.classList.remove('run'); R.style.left='60%'; R.classList.add('knocked');
+      B.style.display='block'; S.style.display='block';
+      SFX.boom(); F.classList.remove('working');
+      storyTalk('咦？！兔子撞到樹樁了！😲','8%');
+    },1600);
+  }else if(i===2){
+    F.style.left='50%';
+    R.style.display='block'; R.style.left='60%'; R.classList.add('knocked');
+    storyTalk('多好的事啊！完全不費力氣，就能撿到死兔子！😄','28%');
+  }else{
+    F.style.left='56%';
+    storyTalk('💭 明天不用耕作了，坐在這裏等兔子就好！','30%');
+  }
+}
+$('#btnPrev').onclick = () => { SFX.click(); if(slide>0) setSlide(slide-1); };
+$('#btnNext').onclick = () => { SFX.click(); if(slide<STORY.length-1) setSlide(slide+1); else startFarmLevel(); };
+$('#btnReadStory').onclick = () => speak($('#storyText').textContent);
 
-try:
-    from google.colab import files
-    files.download(fname)
-except ImportError:
-    pass
+/* ================= 第二關：農夫的選擇 ================= */
+const ITEMS = [ {icon:'🌿',label:'拔草！'}, {icon:'🐛',label:'捉蟲！'}, {icon:'💧',label:'澆水！'} ];
+const TEMPT = ['說不定今天又有兔子撞過來呢？🐰','等兔子不用費力氣，好吸引啊……','耕田好辛苦啊……要不要去等兔子？','昨天那隻兔子真好吃……😋'];
+const farm = { day:2, growth:10, health:100, waitDays:0, workDays:0, busy:false, dead:false };
+let farmTimers = [];
+
+function farmTalk(text){ const T=$('#farmTalk'); T.textContent=text; T.style.display='block'; T.style.animation='none'; void T.offsetWidth; T.style.animation=''; }
+function farmOwl(text){ $('#farmOwl').innerHTML = text; }
+function clearFarmTimers(){ farmTimers.forEach(t=>{clearInterval(t);clearTimeout(t);}); farmTimers=[]; }
+
+function startFarmLevel(){
+  show('screen-farm','第二關');
+  clearFarmTimers();
+  Object.assign(farm, {day:2, growth:10, health:100, waitDays:0, workDays:0, busy:false, dead:false});
+  const f = $('#field'); f.innerHTML='';
+  for(let i=0;i<8;i++){ const p=document.createElement('div'); p.className='plot'; p.innerHTML='<span class="crop"></span>'; f.appendChild(p); }
+  $('#farmResult').classList.add('hidden');
+  $('#timerBadge').classList.add('hidden');
+  $('#waitCloud').classList.add('hidden');
+  $('#farRabbit').className='';
+  updateFarm();
+  showChoice(true);
+}
+function cropLook(){
+  if(farm.dead) return ['🍂',1];
+  if(farm.health<40) return ['🥀',0.9];
+  const g = farm.growth;
+  if(g<25) return ['🌱',0.7];
+  if(g<50) return ['🌱',1.1];
+  if(g<80) return ['🌾',0.95];
+  return ['🌾',1.25];
+}
+function updateFarm(){
+  $('#dayNum').textContent = Math.min(farm.day,7);
+  $('#growBar').style.width = farm.growth+'%';
+  $('#growBar').style.background = '#74b816';
+  $('#healthBar').style.width = farm.health+'%';
+  $('#healthBar').style.background = farm.health>60 ? '#40c057' : farm.health>30 ? '#fd7e14' : '#fa5252';
+  const [ic, sc] = cropLook();
+  document.querySelectorAll('.plot').forEach(p=>{
+    const c = p.querySelector('.crop');
+    c.textContent = ic; c.style.transform = `scale(${sc})`;
+    p.classList.toggle('weedy', !farm.dead && farm.health<60);
+    p.classList.toggle('ripe', !farm.dead && farm.growth>=80 && farm.health>=40);
+    p.classList.toggle('dead', farm.dead);
+  });
+}
+function showChoice(first){
+  farm.busy = false;
+  $('#choicePanel').classList.remove('hidden');
+  const F=$('#farmFarmer'); F.className='actor'; F.style.left='70%';
+  farmTalk(TEMPT[rand(TEMPT.length)]);
+  if(first){
+    farmOwl(`現在你就是農夫！第 1 天你已經撿到一隻兔子 🐰。<br>接下來的 <b>6 天</b>，每天你都要選擇：<b>下田耕作</b>，還是<b>坐在樹樁旁等兔子</b>？第 7 天過後，看看你有多少收成吧！`);
+  }else{
+    farmOwl(`📅 第 ${farm.day} 天的早上。今天你想怎樣做呢？`);
+  }
+}
+function hideChoice(){ $('#choicePanel').classList.add('hidden'); }
+
+function floatText(parent, text, color){
+  const s=document.createElement('span'); s.className='float'; s.textContent=text;
+  if(color) s.style.color=color;
+  parent.appendChild(s); setTimeout(()=>s.remove(),1000);
+}
+
+$('#btnWork').onclick = () => {
+  if(farm.busy) return; farm.busy = true; SFX.click(); hideChoice();
+  let score = 0, t = 12;
+  const tb = $('#timerBadge'); tb.textContent = '⏱️ '+t; tb.classList.remove('hidden');
+  const F = $('#farmFarmer'); F.style.left='66%'; F.classList.add('working');
+  farmTalk('嘿呦！努力工作！💪');
+  farmOwl('快！點擊田裏的 <b>🌿雜草</b>、<b>🐛害蟲</b> 和 <b>💧缺水的泥土</b>，好好照顧農作物！');
+  const plots = [...document.querySelectorAll('.plot')];
+  const spawn = () => {
+    const free = plots.filter(p=>!p.querySelector('.item'));
+    if(!free.length) return;
+    const p = free[rand(free.length)];
+    const it = ITEMS[rand(ITEMS.length)];
+    const d = document.createElement('div');
+    d.className='item'; d.textContent=it.icon;
+    d.addEventListener('pointerdown', e=>{
+      e.preventDefault();
+      if(d.dataset.done) return;
+      d.dataset.done='1'; score++; SFX.good();
+      floatText(p, '+1 '+it.label);
+      d.classList.add('gone'); setTimeout(()=>d.remove(),250);
+    });
+    p.appendChild(d);
+    setTimeout(()=>{ if(!d.dataset.done) d.remove(); }, 2600);
+  };
+  spawn();
+  farmTimers.push(setInterval(spawn, 600));
+  farmTimers.push(setInterval(()=>{
+    t--; tb.textContent='⏱️ '+t;
+    if(t<=0) endWork(score);
+  },1000));
+};
+function endWork(score){
+  clearFarmTimers();
+  document.querySelectorAll('.item').forEach(i=>i.remove());
+  $('#timerBadge').classList.add('hidden');
+  const gain = Math.min(30, 5 + score*2);
+  farm.growth = Math.min(100, farm.growth + gain);
+  farm.health = Math.min(100, farm.health + 25);
+  farm.workDays++;
+  updateFarm();
+  $('#farmFarmer').classList.remove('working');
+  farmTalk('今天的工作完成了，好累但很開心！😊');
+  farmOwl(`做得好！今天你完成了 <b>${score}</b> 項工作，農作物長高了！🌱⬆️`);
+  SFX.win();
+  farmTimers.push(setTimeout(nextDay, 2300));
+}
+
+$('#btnWait').onclick = () => {
+  if(farm.busy) return; farm.busy = true; SFX.click(); hideChoice();
+  const F = $('#farmFarmer'); F.style.left='78%';
+  farmTalk('我坐在這裏等兔子就好了……😏');
+  farmOwl('農夫坐在樹樁旁，一心等待兔子跑過來撞死……');
+  $('#waitCloud').classList.remove('hidden');
+  const lucky = Math.random() < 0.5;
+  farmTimers.push(setTimeout(()=>{
+    if(lucky){
+      const r=$('#farRabbit'); r.className=''; void r.offsetWidth; r.className='hop';
+      farmTalk('咦！有兔子！快撞過來吧！🤩');
+      farmTimers.push(setTimeout(()=>farmTalk('兔子跑走了……牠才不會撞樹樁呢！😩'),2300));
+    }else{
+      farmTalk('等呀等……一隻兔子也沒有……😪');
+    }
+  },1200));
+  farmTimers.push(setTimeout(endWait, 5200));
+};
+function endWait(){
+  clearFarmTimers();
+  $('#waitCloud').classList.add('hidden');
+  $('#farRabbit').className='';
+  farm.health = Math.max(0, farm.health - 35);
+  farm.growth = Math.max(0, farm.growth - 10);
+  farm.waitDays++;
+  if(farm.health<=0) farm.dead = true;
+  updateFarm();
+  SFX.bad();
+  farmTalk('唉……今天又白等了……');
+  if(farm.dead){
+    farmOwl('糟糕！田裏沒有人照顧，<b>農作物全枯死了</b>！😱');
+  }else{
+    farmOwl('今天<b>沒有兔子</b>撞樹樁。田裏沒有人照顧，長滿了雜草，<b>農作物開始枯萎了</b>！🥀');
+  }
+  farmTimers.push(setTimeout(nextDay, 2500));
+}
+function nextDay(){
+  farm.day++;
+  updateFarm();
+  if(farm.dead || farm.day>7) endFarm();
+  else showChoice(false);
+}
+function endFarm(){
+  hideChoice();
+  const harvest = farm.dead ? 0 : Math.round(farm.growth/10 * farm.health/100);
+  let stars, title, lesson;
+  if(farm.dead){
+    stars=1; title='😭 農作物全枯死了！';
+    lesson='你和課文中的農夫一樣，一直等兔子，結果<b>兔子卻再也沒有出現</b>，田裏的<b>農作物也全枯死了</b>。兔子撞樹樁只是<b>偶然</b>發生的事，希望不勞而獲，是不會有好結果的！';
+  }else if(farm.waitDays===0){
+    stars=3; title='🎉 大豐收！你真勤勞！';
+    lesson='你每天都勤勞地下田耕作，所以得到大豐收！兔子撞樹樁只是偶然的好運，<b>只有努力工作，才會有真正的收穫</b>！';
+  }else{
+    stars = farm.waitDays<=1 ? 2 : 1;
+    title='😐 收成還可以，但是……';
+    lesson=`你有 <b>${farm.waitDays}</b> 天去等兔子，可是兔子<b>一隻也沒有再來</b>，白白浪費了時間，農作物也長得不夠好。記住：<b>希望不勞而獲，是不會有好結果的</b>！`;
+  }
+  addStars('farm', stars);
+  stars>=2 ? SFX.win() : SFX.bad();
+  farmOwl('第二關完成！看看你的成績吧！');
+  const R = $('#farmResult');
+  R.innerHTML = `
+    <div class="result-card">
+      <h3>${title}</h3>
+      <div class="stars-big">${starHTML(stars)}</div>
+      <div class="compare">
+        <div><b>👦 你的農田</b><br>⛏️ 耕作：${farm.workDays} 天<br>🪵 等兔子：${farm.waitDays} 天<br>🌾 收成：<b>${harvest}</b> 袋米<br>🐰 兔子：只有第 1 天那 1 隻</div>
+        <div><b>📖 課文中的農夫</b><br>⛏️ 耕作：0 天<br>🪵 等兔子：天天都等<br>🌾 收成：<b>0</b> 袋米（全枯死了）<br>🐰 兔子：再也沒有出現</div>
+      </div>
+      <div class="lesson">🦉 ${lesson}</div>
+      <div class="btn-row">
+        <button class="btn brown" onclick="SFX.click();startFarmLevel()">🔄 再試一次</button>
+        <button class="btn green pulse" onclick="SFX.click();startOrder()">下一關 ▶</button>
+      </div>
+    </div>`;
+  R.classList.remove('hidden');
+}
+
+/* ================= 第三關：故事排排序 ================= */
+const ORDER_CARDS = [
+  {id:1, icon:'🧑‍🌾💥🐇', text:'農夫在田裏耕作，一隻兔子撞死在樹樁上。'},
+  {id:2, icon:'😄🐇🏠', text:'農夫撿起兔子，高高興興地回家去。'},
+  {id:3, icon:'🪵🧑‍🌾💭', text:'農夫不再耕作，每天坐在田邊等兔子。'},
+  {id:4, icon:'🍂😰', text:'農作物全枯死了，兔子再也沒有出現。'}
+];
+const SLOT_TAG = ['起因','起因','經過','結果'];
+let orderPool=[], orderSlots=[], orderTries=0, orderDone=false;
+const cardById = id => ORDER_CARDS.find(c=>c.id===id);
+
+function startOrder(){
+  show('screen-order','第三關');
+  do{ orderPool = shuffle([1,2,3,4]); }while(orderPool.join()==='1,2,3,4');
+  orderSlots=[null,null,null,null]; orderTries=0; orderDone=false;
+  $('#orderResult').classList.add('hidden');
+  $('#btnCheck').classList.remove('hidden');
+  $('#orderOwl').innerHTML='故事的圖卡亂了！請<b>按故事發生的先後次序</b>，點擊下面的圖卡，把它們放進 1 至 4 號格子裏。點擊格子裏的圖卡可以拿回來。';
+  renderOrder();
+}
+function renderOrder(marks){
+  const slots=$('#slots'); slots.innerHTML='';
+  orderSlots.forEach((id,i)=>{
+    const s=document.createElement('div'); s.className='slot';
+    if(marks) s.classList.add(marks[i]);
+    if(orderDone){ s.classList.add('right'); s.innerHTML=`<span class="slot-tag">${SLOT_TAG[i]}</span>`; }
+    if(id){
+      const c=cardById(id);
+      s.innerHTML += `<div class="scard"><div class="sc-icon">${c.icon}</div><div class="sc-text">${i+1}. ${c.text}</div></div>`;
+      s.onclick=()=>{ if(orderDone||marks) return; SFX.click(); orderSlots[i]=null; renderOrder(); };
+    }else{
+      s.innerHTML = `<div class="slot-num">${i+1}</div><div>點選圖卡<br>放進這裏</div>`;
+    }
+    slots.appendChild(s);
+  });
+  const pool=$('#pool'); pool.innerHTML='';
+  orderPool.filter(id=>!orderSlots.includes(id)).forEach(id=>{
+    const c=cardById(id);
+    const d=document.createElement('div'); d.className='scard';
+    d.innerHTML=`<div class="sc-icon">${c.icon}</div><div class="sc-text">${c.text}</div>`;
+    d.onclick=()=>{
+      if(orderDone||marks) return;
+      const idx=orderSlots.indexOf(null);
+      if(idx<0) return;
+      SFX.click(); orderSlots[idx]=id; renderOrder();
+    };
+    pool.appendChild(d);
+  });
+  $('#pool').style.display = orderDone ? 'none' : '';
+}
+$('#btnCheck').onclick = () => {
+  if(orderDone) return;
+  if(orderSlots.includes(null)){ SFX.bad(); $('#orderOwl').innerHTML='請先把 <b>四張圖卡</b> 都放進格子裏，再檢查答案啊！'; return; }
+  orderTries++;
+  const marks = orderSlots.map((id,i)=> id===i+1 ? 'right' : 'wrong');
+  if(marks.every(m=>m==='right')){
+    orderDone=true; SFX.win();
+    const stars = orderTries===1 ? 3 : orderTries===2 ? 2 : 1;
+    addStars('order', stars);
+    renderOrder();
+    $('#btnCheck').classList.add('hidden');
+    $('#orderOwl').innerHTML='全部排對了！你真棒！👏';
+    const R=$('#orderResult');
+    R.innerHTML=`
+      <div class="result-card">
+        <h3>🎉 故事排對了！</h3>
+        <div class="stars-big">${starHTML(stars)}</div>
+        <div class="lesson">
+          🕰️ <b>時間：</b>從前　　📍 <b>地點：</b>田裏　　🧑‍🌾 <b>人物：</b>農夫<br>
+          🟣 <b>起因：</b>農夫撿到一隻撞死在樹樁上的兔子，以為不用費力氣就有收穫。<br>
+          🟣 <b>經過：</b>農夫不再耕作，一心坐在樹樁旁等兔子。<br>
+          🟣 <b>結果：</b>農作物全枯死了，兔子卻再也沒有出現。
+        </div>
+        <div class="btn-row"><button class="btn green pulse" onclick="SFX.click();startBubbleLevel()">下一關 ▶</button></div>
+      </div>`;
+    R.classList.remove('hidden');
+  }else{
+    SFX.bad();
+    $('#orderOwl').innerHTML='紅色格子的次序不對啊！想一想：先發生甚麼事？後來又發生甚麼事？再試一次吧！';
+    renderOrder(marks);
+    setTimeout(()=>{
+      orderSlots = orderSlots.map((id,i)=> marks[i]==='right' ? id : null);
+      renderOrder();
+    },1300);
+  }
+};
+
+/* ================= 第四關：勤勞泡泡 ================= */
+const GOOD_B = [['📚','每天温習'],['✏️','自己做功課'],['🎹','用心練琴'],['🏃','努力練跑'],['🧹','幫忙做家務'],['👂','專心聽課'],['🌻','天天澆花'],['📖','多看圖書']];
+const BAD_B  = [['📄','抄同學功課'],['🛋️','等別人幫我做'],['🎲','只想靠運氣'],['💯','不温習想考一百分'],['🏆','不練習想贏比賽'],['😴','睡覺等禮物送上門']];
+const B_COLORS = ['#ffe3e3','#fff3bf','#d3f9d8','#d0ebff','#f3d9fa','#ffe8cc'];
+let bScore=0, bTime=40, bTimers=[], bRunning=false;
+
+function startBubbleLevel(){
+  show('screen-bubble','第四關');
+  bTimers.forEach(t=>clearInterval(t)); bTimers=[]; bRunning=false;
+  $('#bubbleArea').innerHTML='';
+  bScore=0; bTime=40; updB();
+  $('#bubbleIntro').classList.remove('hidden');
+  $('#bubbleResult').classList.add('hidden');
+  $('#bubbleOwl').innerHTML='農夫想不勞而獲，結果甚麼也得不到。我們要做個<b>勤勞</b>的小朋友！';
+}
+function updB(){ $('#bScore').textContent=bScore; $('#bTime').textContent=bTime; }
+$('#btnBubbleStart').onclick = () => {
+  SFX.click();
+  $('#bubbleIntro').classList.add('hidden');
+  bScore=0; bTime=40; bRunning=true; updB();
+  spawnBubble();
+  bTimers.push(setInterval(spawnBubble, 900));
+  bTimers.push(setInterval(()=>{ bTime--; updB(); if(bTime<=0) endBubbleGame(); },1000));
+};
+function spawnBubble(){
+  if(!bRunning) return;
+  const area=$('#bubbleArea');
+  const good = Math.random() < 0.6;
+  const arr = good ? GOOD_B : BAD_B;
+  const [ic, tx] = arr[rand(arr.length)];
+  const b=document.createElement('div');
+  b.className='bubble';
+  b.style.left=(Math.random()*76+1)+'%';
+  b.style.animationDuration=(6.5+Math.random()*2.5)+'s';
+  b.style.background=B_COLORS[rand(B_COLORS.length)];
+  b.innerHTML=`<span class="b-ic">${ic}</span><span class="b-tx">${tx}</span>`;
+  b.addEventListener('pointerdown', e=>{ e.preventDefault(); hitBubble(b, good, tx); });
+  b.addEventListener('animationend', ()=>b.remove());
+  area.appendChild(b);
+}
+function hitBubble(b, good, tx){
+  if(!bRunning || b.dataset.hit) return;
+  b.dataset.hit='1';
+  b.style.bottom = getComputedStyle(b).bottom;
+  const area=$('#bubbleArea');
+  const f=document.createElement('span'); f.className='float';
+  f.style.left = `calc(${b.style.left} + 75px)`; f.style.top='auto'; f.style.bottom=b.style.bottom;
+  if(good){
+    bScore++; SFX.good(); b.classList.add('popped');
+    f.textContent='+1 💪';
+    $('#bubbleOwl').innerHTML=`「${tx}」是勤勞努力的好習慣！👍`;
+  }else{
+    bScore=Math.max(0,bScore-1); SFX.bad(); b.classList.add('wrongpop');
+    f.textContent='-1 🚫'; f.style.color='#e03131';
+    $('#bubbleOwl').innerHTML=`「${tx}」是<b>不勞而獲</b>的想法，就像守株待兔的農夫啊！不要點它！🚫`;
+  }
+  updB();
+  area.appendChild(f); setTimeout(()=>f.remove(),1000);
+}
+function endBubbleGame(){
+  bRunning=false;
+  bTimers.forEach(t=>clearInterval(t)); bTimers=[];
+  $('#bubbleArea').innerHTML='';
+  const stars = bScore>=12 ? 3 : bScore>=7 ? 2 : 1;
+  addStars('bubble', stars);
+  SFX.win();
+  const R=$('#bubbleResult');
+  R.innerHTML=`
+    <div class="result-card">
+      <h3>⏰ 時間到！你得到 ${bScore} 分勤勞分！</h3>
+      <div class="stars-big">${starHTML(stars)}</div>
+      <div class="lesson">🦉 每天温習、努力練習、自己做功課……這些都是<b>勤勞</b>的好習慣。<br>抄功課、只想靠運氣，就像守株待兔的農夫一樣，<b>不勞而獲是不會有好結果的</b>！</div>
+      <div class="btn-row">
+        <button class="btn brown" onclick="SFX.click();startBubbleLevel()">🔄 再玩一次</button>
+        <button class="btn green pulse" onclick="SFX.click();startQuiz()">下一關 ▶</button>
+      </div>
+    </div>`;
+  R.classList.remove('hidden');
+}
+
+/* ================= 第五關：道理小問答 ================= */
+const QUIZ = [
+  {q:'為甚麼農夫不再下田工作？', opts:['因為他生病了','因為他希望再有兔子撞死在樹樁上','因為田裏下大雨'], a:1,
+   exp:'農夫撿到一隻兔子後，以為不用費力氣就能天天撿到兔子，所以不再耕作。'},
+  {q:'農夫一直等待，結果怎麼樣？', opts:['他撿到很多很多兔子','樹樁長出了新的葉子','農作物全枯死了，兔子卻再也沒有出現'], a:2,
+   exp:'兔子撞樹樁只是偶然發生的事，農夫白白等待，最後甚麼也得不到。'},
+  {q:'「不勞而獲」是甚麼意思？', opts:['不付出努力，就想得到收穫','很努力地工作','不喜歡吃兔子'], a:0,
+   exp:'「勞」是付出努力，「獲」是得到收穫。不勞而獲就是不努力，卻想得到收穫。'},
+  {q:'你認為農夫做得對嗎？', opts:['對，因為不用費力氣就有兔子','不對，因為偶然的好運不會常常出現，要努力工作才有收穫'], a:1,
+   exp:'好運氣不會天天出現，只靠運氣是不行的，我們要靠自己努力。'},
+  {q:'下面哪一位小朋友像「守株待兔」的農夫？', opts:['小美每天都認真温習','小明不温習，希望考試剛好考他懂的題目','小強天天練習跳繩'], a:1,
+   exp:'小明不努力，只希望靠運氣，就像守株待兔的農夫一樣。'},
+  {q:'這個寓言故事告訴我們甚麼道理？', opts:['兔子跑得太快會撞到樹樁','希望不勞而獲，是不會有好結果的','種田是很容易的事'], a:1,
+   exp:'我們要勤勞努力，不能只想着不勞而獲。'}
+];
+let qi=0, qCorrect=0, qLocked=false;
+function startQuiz(){
+  show('screen-quiz','第五關');
+  qi=0; qCorrect=0;
+  $('#quizCard').classList.remove('hidden');
+  $('#quizResult').classList.add('hidden');
+  renderQuiz();
+}
+function renderQuiz(){
+  const Q=QUIZ[qi];
+  $('#qProg').textContent=`第 ${qi+1} 題 / 共 ${QUIZ.length} 題　　✅ 答對：${qCorrect} 題`;
+  $('#qText').textContent=Q.q;
+  const box=$('#qOpts'); box.innerHTML='';
+  Q.opts.forEach((o,i)=>{
+    const b=document.createElement('button'); b.className='opt';
+    b.textContent=['A','B','C','D'][i]+'. '+o;
+    b.onclick=()=>answer(i,b);
+    box.appendChild(b);
+  });
+  $('#qFeedback').classList.add('hidden');
+  $('#btnQNext').classList.add('hidden');
+  qLocked=false;
+}
+function answer(i, btn){
+  if(qLocked) return; qLocked=true;
+  const Q=QUIZ[qi];
+  const btns=[...document.querySelectorAll('#qOpts .opt')];
+  let fb;
+  if(i===Q.a){
+    qCorrect++; btn.classList.add('right'); SFX.good();
+    fb='✅ <b>答對了！</b>'+Q.exp;
+  }else{
+    btn.classList.add('wrong'); btns[Q.a].classList.add('right'); SFX.bad();
+    fb=`❌ <b>再想想！</b>正確答案是 ${['A','B','C','D'][Q.a]}。`+Q.exp;
+  }
+  $('#qFeedback').innerHTML='🦉 '+fb;
+  $('#qFeedback').classList.remove('hidden');
+  const nb=$('#btnQNext');
+  nb.textContent = qi===QUIZ.length-1 ? '看看成績 ▶' : '下一題 ▶';
+  nb.classList.remove('hidden');
+}
+$('#btnQNext').onclick = () => { SFX.click(); qi++; if(qi<QUIZ.length) renderQuiz(); else finishQuiz(); };
+$('#btnReadQ').onclick = () => speak($('#qText').textContent + '。' + QUIZ[qi].opts.join('。'));
+function finishQuiz(){
+  const stars = qCorrect>=6 ? 3 : qCorrect>=4 ? 2 : 1;
+  addStars('quiz', stars);
+  SFX.win();
+  $('#quizCard').classList.add('hidden');
+  const R=$('#quizResult');
+  R.innerHTML=`
+    <div class="result-card">
+      <h3>📝 你答對了 ${qCorrect} / ${QUIZ.length} 題！</h3>
+      <div class="stars-big">${starHTML(stars)}</div>
+      <div class="lesson">🦉 「守株待兔」告訴我們：<b>希望不勞而獲，是不會有好結果的</b>。好運氣只是偶然，勤勞努力才會有收穫！</div>
+      <div class="btn-row">
+        <button class="btn brown" onclick="SFX.click();startQuiz()">🔄 再答一次</button>
+        <button class="btn pink pulse" onclick="SFX.click();showEnd()">🏆 領取獎狀</button>
+      </div>
+    </div>`;
+  R.classList.remove('hidden');
+}
+
+/* ================= 獎狀 ================= */
+function showEnd(){
+  show('screen-end','🏆 頒獎典禮');
+  const t=totalStars();
+  $('#certName').textContent=state.name;
+  $('#certAward').textContent = t>=10 ? '🥇 金獎小農夫' : t>=7 ? '🥈 銀獎小農夫' : '🥉 銅獎小農夫';
+  $('#certStars').innerHTML = `⭐ × ${t} / 12`;
+  SFX.win();
+  confetti();
+}
+function confetti(){
+  const box=$('#confetti'); box.innerHTML='';
+  const em=['🎉','⭐','🌾','🐰','🎊','🌟'];
+  for(let i=0;i<45;i++){
+    const s=document.createElement('span'); s.className='conf';
+    s.textContent=em[rand(em.length)];
+    s.style.left=Math.random()*100+'vw';
+    s.style.animationDuration=(2.5+Math.random()*2.5)+'s';
+    s.style.animationDelay=(Math.random()*1.5)+'s';
+    box.appendChild(s);
+  }
+  setTimeout(()=>box.innerHTML='',6000);
+}
+$('#btnReplay').onclick = () => {
+  SFX.click();
+  state.levelStars={farm:0, order:0, bubble:0, quiz:0};
+  updateStars();
+  show('screen-start','開始');
+};
+</script>
+</body>
+</html>
